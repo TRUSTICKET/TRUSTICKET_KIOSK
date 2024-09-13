@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRUCTICKET 결과</title>
+    <style>
+        body {
+            background-color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: white;
+        }
+        .content-container {
+            text-align: center;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+        }
+        p {
+            font-size: 20px;
+        }
+
+
+        .image-comparison {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .image-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        img{
+            width: 480px;
+            height: 512px;
+            border: 1px solid white;
+        }
+
+        canvas, video {
+            width: 720px;
+            height: 512px;
+            border: 1px solid white;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #successMessage, #failureMessage {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: lime;
+            background-color: black;
+            padding: 20px;
+            border: 2px solid white;
+            text-align: center;
+            z-index: 9999;
+        }
+
+        #failureMessage {
+            color: red;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="content-container">
+        <h1>TRUCTICKET 결과</h1>
+        <p id="ticketInfo">로딩 중...</p>
+        <div class="image-comparison">
+            <!-- 프로필 이미지 -->
+            <div class="image-container">
+                <h2>등록 이미지</h2>
+                <img id="profileImage" alt="API 이미지" />
+            </div>
+            <!-- 현장 이미지  -->
+            <div class="image-container">
+                <h2>현장 이미지</h2>
+                <canvas id="selfieCanvas"></canvas>
+            </div>
+            <!-- 촬영 화면 -->
+            <div class="image-container">
+                <h2>카메라 화면</h2>
+                <video id="video" autoplay></video>
+            </div>
+        </div>
+        <button id="takeSelfieButton" style="display:none;" onclick="takeSelfie()">촬영하기</button>
+        <button id="saveSelfieButton" style="display:none;" onclick="verify()">인증</button>
+    </div>
+
+
+    <div id="successMessage">인증 성공!</div>
+    <div id="failureMessage">인증 실패!</div>
+
+    <script>
+        let profileImageUrl = '';
+        let capturedSelfie = null;
+
+        function getTicketNumberFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('ticket');
+        }
+
+        // Booking API 요청 후 이미지 데이터 받아오기
+        function fetchTicketInfo(ticketNumber) {
+            const apiUrl = `http://localhost:8000/trusticket-booking/api/v1/booking/id/${ticketNumber}`;  // API 엔드포인트
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success === false) {
+                        document.getElementById('ticketInfo').innerText = '티켓 정보를 가져오는 데 실패했습니다.';
+                    } else {
+                        document.getElementById('ticketInfo').innerText = `티켓 번호: ${ticketNumber}, 상태: ${data.status}`;
+                        
+                        profileImageUrl = data.response.profile_uri;  // 프로필 이미지 URL
+                        document.getElementById('profileImage').src = profileImageUrl;
+
+                        document.getElementById('takeSelfieButton').style.display = 'inline';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('ticketInfo').innerText = '티켓 정보를 가져오는 데 실패했습니다.';
+                    console.error('API 요청 중 오류 발생:', error);
+                });
+        }
+
+        // 웹캠 활성화 
+        function enableCamera() {
+            const video = document.getElementById('video');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then((stream) => {
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                })
+                .catch((error) => {
+                    console.error('카메라에 접근할 수 없습니다:', error);
+                });
+        }
+
+        // 셀카 찍기
+        function takeSelfie() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('selfieCanvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedSelfie = canvas.toDataURL('image/jpeg');  // 캡처된 셀카 이미지
+
+            document.getElementById('saveSelfieButton').style.display = 'inline';
+        }
+
+        // 인증
+        function verify() {
+            const formData = new FormData();
+
+            fetch(profileImageUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                    formData.append('profile_image', blob, 'profile_image.jpg');
+                    
+                    // 캔버스에 캡처한 셀카 이미지를 Blob으로 변환하여 추가
+                    const selfieBlob = dataURLtoBlob(capturedSelfie);
+                    formData.append('selfie_image', selfieBlob, 'selfie_image.jpg');
+
+                    // Flask 서버로 얼굴 비교 요청 전송
+                    fetch('http://127.0.0.1:5000/verify', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.verified) {
+                            showSuccessMessage();  // 성공 메시지 표시
+                        } else {
+                            showFailureMessage();  // 실패 메시지 표시
+                        }
+                    })
+                    .catch(error => {
+                        console.error('인증 요청 중 오류 발생:', error);
+                    });
+                });
+        }
+
+        // 성공 메시지 표시 
+        function showSuccessMessage() {
+            const messageElement = document.getElementById('successMessage');
+            messageElement.style.display = 'block';
+
+            setTimeout(function() {
+                window.location.href = 'index.html';
+            }, 3000);
+        }
+
+        // 실패 메시지 표시 
+        function showFailureMessage() {
+            const messageElement = document.getElementById('failureMessage');
+            messageElement.style.display = 'block';
+
+            setTimeout(function() {
+                window.location.href = 'index.html';
+            }, 3000);
+        }
+
+        // Base64를 Blob으로 변환
+        function dataURLtoBlob(dataUrl) {
+            const arr = dataUrl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        }
+
+        // 페이지 로드 시 티켓 번호를 가져와 API 호출
+        window.onload = function() {
+            const ticketNumber = getTicketNumberFromURL();
+            if (ticketNumber) {
+                fetchTicketInfo(ticketNumber);
+            } else {
+                document.getElementById('ticketInfo').innerText = '유효한 티켓 번호가 없습니다.';
+            }
+            enableCamera();  
+        }
+    </script>
+</body>
+</html>

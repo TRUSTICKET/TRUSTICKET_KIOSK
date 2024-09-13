@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRUCTICKET 현장인증</title>
+    <style>
+        body {
+            background-color: black;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: white;
+        }
+        .kiosk-container {
+            text-align: center;
+            border: 2px solid white;
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            background-color: black;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            color: white;
+        }
+        p {
+            margin-bottom: 30px;
+            font-size: 20px;
+            color: white;
+        }
+        .input-section {
+            margin-bottom: 30px;
+        }
+        input[type="text"] {
+            padding: 15px;
+            width: 100%;
+            font-size: 18px;
+            border: 1px solid white;
+            background-color: black;
+            color: white;
+        }
+        input[type="text"]::placeholder {
+            color: #cccccc;
+        }
+        button {
+            padding: 15px 30px;
+            background-color: white;
+            color: black;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: gray;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="kiosk-container">
+        <h1>TRUCTICKET</h1>
+        <p>예매한 티켓 번호를 입력하거나 바코드를 인식시켜주세요.</p>
+        <div class="input-section">
+            <input type="text" id="ticketNumber" placeholder="티켓 번호 입력">
+        </div>
+        <button onclick="goToNextPage()">확인</button>
+    </div>
+
+    <script>
+        function goToNextPage() {
+            const ticketNumber = document.getElementById("ticketNumber").value;
+            if(ticketNumber) {
+                window.location.href = "verify.html?ticket=" + ticketNumber;
+            } else {
+                alert("티켓 번호를 입력해주세요.");
+            }
+        }
+    </script>
+</body>
+</html>
